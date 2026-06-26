@@ -489,13 +489,10 @@ function closeModalOutside(e, id) { if (e.target.id === id) closeModal(id); }
 //  GOOGLE SHEET SYNC
 // ============================================================
 async function sendToSheet(data) {
-  if (SCRIPT_URL === 'YOUR_APPS_SCRIPT_URL_HERE') return; // not configured yet
-  const res = await fetch(SCRIPT_URL, {
-    method: 'POST',
-    mode: 'no-cors',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
-  });
+  if (SCRIPT_URL === 'YOUR_APPS_SCRIPT_URL_HERE') return;
+  const params = new URLSearchParams({ ...data });
+  const url = SCRIPT_URL + '?' + params.toString();
+  const res = await fetch(url, { method: 'GET' });
   return res;
 }
 
