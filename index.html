@@ -299,6 +299,13 @@ input:checked+.slider:before{transform:translateX(18px)}
       <div class="section-title">รายจ่ายสะสมทั้งปี</div>
       <div class="card" id="year-cat-breakdown"></div>
     </div>
+    <div class="section" style="margin-top:16px">
+      <div class="section-title">จัดการข้อมูล</div>
+      <div class="card">
+        <div style="font-size:13px;color:var(--text2);margin-bottom:10px">ล้างข้อมูลทดสอบในแอป (ข้อมูลใน Google Sheet ไม่หาย)</div>
+        <button onclick="clearAllLocalData()" style="width:100%;padding:12px;background:#FCEBEB;color:#A32D2D;border:none;border-radius:10px;font-size:14px;font-weight:600;font-family:inherit;cursor:pointer">🗑️ ล้างข้อมูลทดสอบ</button>
+      </div>
+    </div>
   </div>
 
   <!-- BOTTOM NAV -->
@@ -425,6 +432,19 @@ input:checked+.slider:before{transform:translateX(18px)}
       <button class="btn-danger" onclick="deleteInvestment()">ลบ (ได้คืนแล้ว)</button>
       <button class="btn-cancel" onclick="closeModal('modal-edit-inv')">ยกเลิก</button>
       <button class="btn-confirm" onclick="updateInvestment()">บันทึก</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- MODAL: MONTH DETAIL -->
+<div class="modal-overlay" id="modal-month-detail" onclick="closeModalOutside(event,'modal-month-detail')">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title" id="modal-month-title">สรุปเดือน</div>
+    <div id="modal-month-body"></div>
+    <div style="margin-top:14px">
+      <button class="btn-cancel" style="width:100%" onclick="closeModal('modal-month-detail')">ปิด</button>
     </div>
   </div>
 </div>

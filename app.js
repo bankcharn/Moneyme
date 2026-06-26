@@ -380,25 +380,38 @@ function renderBars(cats) {
 
 function renderRecentTx() {
   const el = document.getElementById('recent-tx');
-  const recent = transactions.slice(0,8);
-  if (recent.length === 0) {
-    el.innerHTML = '<div style="text-align:center;color:var(--text3);padding:20px 0;font-size:14px;">ยังไม่มีรายการ<br>กด + บันทึกรายแรกได้เลย</div>';
+  const now = new Date();
+  const thisMonth = transactions.filter(tx => {
+    const d = new Date(tx.date);
+    return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+  });
+  if (thisMonth.length === 0) {
+    el.innerHTML = '<div style="text-align:center;color:var(--text3);padding:20px 0;font-size:14px;">ยังไม่มีรายการเดือนนี้<br>กด + บันทึกรายแรกได้เลย</div>';
     return;
   }
-  el.innerHTML = recent.map(tx => {
+  el.innerHTML = thisMonth.map(tx => {
     const sign = tx.type==='income' ? '+' : tx.type==='invest' ? '' : '-';
     const cls  = tx.type==='income' ? 'pos' : tx.type==='invest' ? 'inv' : 'neg';
     const d    = new Date(tx.date);
     const dateStr = d.toLocaleDateString('th-TH',{day:'numeric',month:'short'});
-    return `<div class="tx-item">
+    return `<div class="tx-item" style="position:relative">
       <div class="tx-icon" style="background:#f5f5f7">${tx.catIcon}</div>
       <div class="tx-info">
         <div class="tx-name">${tx.catName}${tx.note?' · '+tx.note:''}</div>
         <div class="tx-meta">${dateStr}</div>
       </div>
       <div class="tx-amt ${cls}">${sign}฿${fmt(tx.amount)}</div>
+      <button onclick="deleteTx(${tx.id})" style="margin-left:8px;background:none;border:none;color:#ababab;font-size:16px;cursor:pointer;padding:4px;flex-shrink:0">✕</button>
     </div>`;
   }).join('');
+}
+
+function deleteTx(id) {
+  if (!confirm('ลบรายการนี้?')) return;
+  transactions = transactions.filter(tx => tx.id !== id);
+  localStorage.setItem('mm_tx', JSON.stringify(transactions));
+  renderDashboard();
+  showToast('ลบรายการแล้ว');
 }
 
 // ============================================================
@@ -755,24 +768,101 @@ function showScenario(newDCA) {
 // ============================================================
 function renderYearly() {
   let totalSaving = 0;
+  let totalIncome = 0;
+  let totalExpense = 0;
+  let totalInvest = 0;
+
+  // month grid (กดได้)
   const monthHtml = MONTH_NAMES.map((m,i) => {
     const h = HISTORICAL[m];
     if (!h) return `<div class="month-card empty"><div class="mn">${MONTH_TH[i]}</div><div class="mv">—</div></div>`;
-    totalSaving += h.saving;
-    return `<div class="month-card"><div class="mn">${MONTH_TH[i]}</div><div class="mv ${h.saving>=0?'pos':'neg'}">${fmtShort(h.saving)}</div></div>`;
+    totalSaving  += h.saving;
+    totalIncome  += h.income;
+    totalExpense += h.expense;
+    totalInvest  += (h.dca||0);
+    return `<div class="month-card" onclick="showMonthDetail('${m}',${i})" style="cursor:pointer">
+      <div class="mn">${MONTH_TH[i]}</div>
+      <div class="mv ${h.saving>=0?'pos':'neg'}">${fmtShort(h.saving)}</div>
+    </div>`;
   }).join('');
+
   document.getElementById('year-total-saving').textContent = '฿'+fmt(totalSaving);
   document.getElementById('month-grid').innerHTML = monthHtml;
+
+  // yearly summary table
+  const colors = ['#378ADD','#E24B4A','#EF9F27','#1D9E75','#7F77DD','#888780'];
   const aggCats = {};
   Object.values(HISTORICAL).forEach(h => Object.entries(h.cats).forEach(([k,v])=>{ aggCats[k]=(aggCats[k]||0)+v; }));
   const maxV = Math.max(...Object.values(aggCats),1);
+
+  document.getElementById('year-cat-breakdown').innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px">
+      <div style="background:#f5f5f7;border-radius:8px;padding:10px">
+        <div style="font-size:10px;color:#ababab;font-weight:600;text-transform:uppercase;margin-bottom:3px">รายรับรวม</div>
+        <div style="font-size:15px;font-weight:700;color:#1D9E75">฿${fmt(totalIncome)}</div>
+      </div>
+      <div style="background:#f5f5f7;border-radius:8px;padding:10px">
+        <div style="font-size:10px;color:#ababab;font-weight:600;text-transform:uppercase;margin-bottom:3px">รายจ่ายรวม</div>
+        <div style="font-size:15px;font-weight:700;color:#E24B4A">฿${fmt(totalExpense)}</div>
+      </div>
+      <div style="background:#f5f5f7;border-radius:8px;padding:10px">
+        <div style="font-size:10px;color:#ababab;font-weight:600;text-transform:uppercase;margin-bottom:3px">ออมรวม</div>
+        <div style="font-size:15px;font-weight:700;color:#1a1a2e">฿${fmt(totalSaving)}</div>
+      </div>
+      <div style="background:#f5f5f7;border-radius:8px;padding:10px">
+        <div style="font-size:10px;color:#ababab;font-weight:600;text-transform:uppercase;margin-bottom:3px">DCA รวม</div>
+        <div style="font-size:15px;font-weight:700;color:#378ADD">฿${fmt(totalInvest)}</div>
+      </div>
+    </div>
+    <div style="font-size:12px;color:#ababab;font-weight:600;margin-bottom:8px">รายจ่ายแยกหมวด (สะสม)</div>
+    ${Object.entries(aggCats).map(([name,val],i)=>`
+      <div class="bar-row">
+        <span class="bar-label">${name}</span>
+        <div class="bar-track"><div class="bar-fill" style="width:${Math.round(val/maxV*100)}%;background:${colors[i%colors.length]}"></div></div>
+        <span class="bar-amount">${fmtShort(val)}</span>
+      </div>`).join('')}
+  `;
+}
+
+function showMonthDetail(monthKey, monthIdx) {
+  const h = HISTORICAL[monthKey];
+  if (!h) return;
+  const monthName = MONTH_TH[monthIdx] + ' 2569';
   const colors = ['#378ADD','#E24B4A','#EF9F27','#1D9E75','#7F77DD','#888780'];
-  document.getElementById('year-cat-breakdown').innerHTML = Object.entries(aggCats).map(([name,val],i)=>`
-    <div class="bar-row">
-      <span class="bar-label">${name}</span>
-      <div class="bar-track"><div class="bar-fill" style="width:${Math.round(val/maxV*100)}%;background:${colors[i%colors.length]}"></div></div>
-      <span class="bar-amount">${fmtShort(val)}</span>
-    </div>`).join('');
+  const maxV = Math.max(...Object.values(h.cats),1);
+
+  document.getElementById('modal-month-title').textContent = monthName;
+  document.getElementById('modal-month-body').innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px">
+      <div style="background:#E1F5EE;border-radius:8px;padding:10px">
+        <div style="font-size:10px;color:#085041;font-weight:600;text-transform:uppercase;margin-bottom:3px">รายรับ</div>
+        <div style="font-size:16px;font-weight:700;color:#085041">฿${fmt(h.income)}</div>
+      </div>
+      <div style="background:#FCEBEB;border-radius:8px;padding:10px">
+        <div style="font-size:10px;color:#A32D2D;font-weight:600;text-transform:uppercase;margin-bottom:3px">รายจ่าย</div>
+        <div style="font-size:16px;font-weight:700;color:#A32D2D">฿${fmt(h.expense)}</div>
+      </div>
+      <div style="background:#f5f5f7;border-radius:8px;padding:10px">
+        <div style="font-size:10px;color:#ababab;font-weight:600;text-transform:uppercase;margin-bottom:3px">ออม</div>
+        <div style="font-size:16px;font-weight:700">฿${fmt(h.saving)}</div>
+      </div>
+      <div style="background:#E6F1FB;border-radius:8px;padding:10px">
+        <div style="font-size:10px;color:#0C447C;font-weight:600;text-transform:uppercase;margin-bottom:3px">DCA</div>
+        <div style="font-size:16px;font-weight:700;color:#0C447C">฿${fmt(h.dca||0)}</div>
+      </div>
+    </div>
+    <div style="font-size:12px;color:#ababab;font-weight:600;margin-bottom:10px">แจกแจงรายจ่าย</div>
+    ${Object.entries(h.cats).map(([name,val],i)=>`
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+        <div style="width:8px;height:8px;border-radius:50%;background:${colors[i%colors.length]};flex-shrink:0"></div>
+        <span style="font-size:13px;color:#444;flex:1">${name}</span>
+        <div style="width:80px;height:6px;background:#f0f0f0;border-radius:3px;overflow:hidden">
+          <div style="width:${Math.round(val/maxV*100)}%;height:100%;background:${colors[i%colors.length]};border-radius:3px"></div>
+        </div>
+        <span style="font-size:13px;font-weight:600;width:64px;text-align:right">฿${fmt(val)}</span>
+      </div>`).join('')}
+  `;
+  openModal('modal-month-detail');
 }
 
 // ============================================================
@@ -813,4 +903,19 @@ function showToast(msg, isError=false) {
   t.className = 'toast'+(isError?' error':'');
   t.classList.add('show');
   setTimeout(()=>t.classList.remove('show'), 2500);
+}
+
+// ============================================================
+//  CLEAR LOCAL DATA
+// ============================================================
+function clearAllLocalData() {
+  if (!confirm('ล้างข้อมูลทดสอบทั้งหมดในแอป?\n(ข้อมูลใน Google Sheet จะไม่หาย)')) return;
+  localStorage.removeItem('mm_tx');
+  localStorage.removeItem('mm_rec');
+  localStorage.removeItem('mm_inv');
+  localStorage.removeItem('mm_inst');
+  localStorage.removeItem('mm_predict');
+  localStorage.removeItem('mm_settings');
+  showToast('🗑️ ล้างข้อมูลแล้ว กำลัง reload...');
+  setTimeout(() => location.reload(), 1500);
 }
