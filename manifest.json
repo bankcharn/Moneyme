@@ -2,7 +2,7 @@
   "name": "MoneyMe",
   "short_name": "MoneyMe",
   "description": "บัญชีรายรับรายจ่ายส่วนตัว",
-  "start_url": "/",
+  "start_url": "/Moneyme/index.html",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#1a1a2e",
