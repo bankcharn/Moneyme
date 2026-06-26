@@ -3,7 +3,7 @@
 //  แก้ค่า SCRIPT_URL ด้านล่างหลัง deploy Google Apps Script
 // ============================================================
 
-const SCRIPT_URL = 'YOUR_APPS_SCRIPT_URL_HERE';
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxF1vWC--uS7h-6SquTc2LkP1jh_-X5Lq9TY00QrMtdSoJ0pOWqdiwQFprCawNuVjDz/exec';
 
 // ============================================================
 //  DATA (LocalStorage สำหรับ offline-first)
