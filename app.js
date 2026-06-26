@@ -490,10 +490,18 @@ function closeModalOutside(e, id) { if (e.target.id === id) closeModal(id); }
 // ============================================================
 async function sendToSheet(data) {
   if (SCRIPT_URL === 'YOUR_APPS_SCRIPT_URL_HERE') return;
-  const params = new URLSearchParams({ ...data });
-  const url = SCRIPT_URL + '?' + params.toString();
-  const res = await fetch(url, { method: 'GET' });
-  return res;
+  try {
+    const params = new URLSearchParams();
+    Object.entries(data).forEach(([k,v]) => params.append(k, v));
+    await fetch(SCRIPT_URL + '?' + params.toString(), {
+      method: 'GET',
+      mode: 'no-cors',
+    });
+    return { ok: true };
+  } catch(e) {
+    console.error('sendToSheet error:', e);
+    return { ok: false };
+  }
 }
 
 // ============================================================
