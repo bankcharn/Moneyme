@@ -324,24 +324,66 @@ function renderDashboard() {
     return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
   });
 
-  let income = hist ? hist.income : 0;
+  // ถ้ามีข้อมูล historical ใช้ของเดิม ถ้าไม่มี = เดือนปัจจุบัน ดึง real-time
+  let income  = hist ? hist.income  : 0;
   let expense = hist ? hist.expense : 0;
-  let dca = hist ? hist.dca : 0;
-  localThisMonth.forEach(tx => {
-    if (tx.type==='income') income += tx.amount;
-    else if (tx.type==='expense') expense += tx.amount;
-    else if (tx.type==='invest' && tx.catId==='dca') dca += tx.amount;
-  });
+  let dca     = hist ? hist.dca     : 0;
+  let cats    = hist ? hist.cats    : {};
+
+  if (!hist) {
+    // real-time mode: รวม transactions จริง
+    const catMap = {};
+    localThisMonth.forEach(tx => {
+      if (tx.type === 'income') income += tx.amount;
+      else if (tx.type === 'invest' && tx.catId === 'dca') dca += tx.amount;
+      else if (tx.type === 'expense') {
+        expense += tx.amount;
+        catMap[tx.catName] = (catMap[tx.catName] || 0) + tx.amount;
+      }
+    });
+
+    // รวม recurring ที่ยังไม่ได้ log ในเดือนนี้ (committed expense)
+    const today = now.getDate();
+    recurring.forEach(r => {
+      const freq = r.freq || 1;
+      // เช็คว่าเดือนนี้ควรจ่ายไหม
+      if (freq > 1 && now.getMonth() % freq !== 0) return;
+      // เช็คว่า log แล้วยัง
+      const alreadyLogged = localThisMonth.some(tx =>
+        tx.catName && tx.catName.includes(r.name) && tx.note === 'auto-recurring'
+      );
+      if (!alreadyLogged && r.day > today) {
+        // ยังไม่ถึงวัน — นับเป็น "committed" แสดงสีเหลือง
+        catMap['🔜 ' + r.name] = (catMap['🔜 ' + r.name] || 0) + r.amount;
+        expense += r.amount;
+      } else if (!alreadyLogged && r.day <= today) {
+        // ถึงวันแล้วแต่ไม่มีใน transaction — อาจ manual
+        catMap[r.name] = (catMap[r.name] || 0) + r.amount;
+      }
+    });
+    cats = catMap;
+  } else {
+    // historical mode: เพิ่ม local transaction ที่กรอกเพิ่มใหม่
+    localThisMonth.forEach(tx => {
+      if (tx.type === 'income') income += tx.amount;
+      else if (tx.type === 'expense') expense += tx.amount;
+      else if (tx.type === 'invest' && tx.catId === 'dca') dca += tx.amount;
+    });
+  }
+
   const saving = income - expense;
   const remain = saving - dca;
 
   document.getElementById('d-income').textContent  = '฿'+fmt(income);
   document.getElementById('d-expense').textContent = '฿'+fmt(expense);
-  document.getElementById('d-saving').textContent  = '฿'+fmt(saving);
+  document.getElementById('d-saving').textContent  = '฿'+fmt(saving < 0 ? saving : saving);
   document.getElementById('d-dca').textContent     = '฿'+fmt(dca);
   document.getElementById('d-remain').textContent  = '฿'+fmt(remain);
 
-  const cats = hist ? hist.cats : {};
+  // สีเงินคงเหลือ
+  const remainEl = document.getElementById('d-remain');
+  remainEl.style.color = remain >= 0 ? '#1D9E75' : '#E24B4A';
+
   renderDonut(cats, expense);
   renderBars(cats);
   renderRecentTx();
@@ -789,8 +831,43 @@ function renderYearly() {
   let totalInvest = 0;
 
   // month grid (กดได้)
+  const now = new Date();
+  const currentMonthIdx = now.getMonth();
+
   const monthHtml = MONTH_NAMES.map((m,i) => {
     const h = HISTORICAL[m];
+
+    // เดือนปัจจุบัน — real-time
+    if (!h && i === currentMonthIdx) {
+      const localTx = transactions.filter(tx => {
+        const d = new Date(tx.date);
+        return d.getMonth() === i && d.getFullYear() === now.getFullYear();
+      });
+      let rtIncome = 0, rtExpense = 0, rtDca = 0;
+      localTx.forEach(tx => {
+        if (tx.type==='income') rtIncome += tx.amount;
+        else if (tx.type==='expense') rtExpense += tx.amount;
+        else if (tx.type==='invest' && tx.catId==='dca') rtDca += tx.amount;
+      });
+      // รวม recurring ทั้งหมดเดือนนี้
+      const recTotal = recurring.reduce((s,r) => {
+        const freq = r.freq || 1;
+        if (freq > 1 && now.getMonth() % freq !== 0) return s;
+        return s + r.amount;
+      }, 0);
+      rtExpense += recTotal;
+      const rtRemain = rtIncome - rtExpense - rtDca;
+      totalIncome  += rtIncome;
+      totalExpense += rtExpense;
+      totalInvest  += rtDca;
+      totalSaving  += (rtIncome - rtExpense);
+      return `<div class="month-card" style="border:1.5px solid #378ADD">
+        <div class="mn" style="color:#378ADD">${MONTH_TH[i]}</div>
+        <div class="mv ${rtRemain>=0?'pos':'neg'}">${fmtShort(rtRemain)}</div>
+        <div style="font-size:9px;color:#378ADD;margin-top:1px">real-time</div>
+      </div>`;
+    }
+
     if (!h) return `<div class="month-card empty"><div class="mn">${MONTH_TH[i]}</div><div class="mv">—</div></div>`;
     totalSaving  += h.saving;
     totalIncome  += h.income;
