@@ -449,6 +449,20 @@ function renderRecurring() {
       </div>`).join('')}
   `;
 
+  // คำนวณยอดรวมรายเดือน
+  const monthlyTotal = recurring.reduce((s, r) => {
+    const freq = r.freq || 1;
+    return s + Math.round(r.amount / freq);
+  }, 0);
+  const recSummaryEl = document.getElementById('rec-monthly-total');
+  if (recSummaryEl) recSummaryEl.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <span style="font-size:13px;color:var(--text2)">รายจ่ายประจำ/เดือน</span>
+      <span style="font-size:20px;font-weight:700;color:var(--red)">฿${fmt(monthlyTotal)}</span>
+    </div>
+    <div style="font-size:11px;color:var(--text3);margin-top:4px">${recurring.length} รายการ · auto-log ทุกเดือน</div>
+  `;
+
   document.getElementById('rec-list').innerHTML = recurring.map(r => {
     const isPaid  = r.day <= today;
     const isToday = r.day === today;
@@ -782,13 +796,17 @@ function renderYearly() {
     totalIncome  += h.income;
     totalExpense += h.expense;
     totalInvest  += (h.dca||0);
+    const remain = h.saving - (h.dca||0);
     return `<div class="month-card" onclick="showMonthDetail('${m}',${i})" style="cursor:pointer">
       <div class="mn">${MONTH_TH[i]}</div>
-      <div class="mv ${h.saving>=0?'pos':'neg'}">${fmtShort(h.saving)}</div>
+      <div class="mv ${remain>=0?'pos':'neg'}">${fmtShort(remain)}</div>
+      <div style="font-size:9px;color:var(--text3);margin-top:1px">เงินสดเหลือ</div>
     </div>`;
   }).join('');
 
-  document.getElementById('year-total-saving').textContent = '฿'+fmt(totalSaving);
+  const totalRemain = Object.values(HISTORICAL).reduce((s,h) => s + h.saving - (h.dca||0), 0);
+  document.getElementById('year-total-saving').textContent = '฿'+fmt(totalRemain);
+  document.getElementById('year-saving-label').textContent = 'เงินสดเหลือ (หัก DCA)';
   document.getElementById('month-grid').innerHTML = monthHtml;
 
   // yearly summary table
