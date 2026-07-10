@@ -324,65 +324,86 @@ function renderDashboard() {
     return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
   });
 
-  // ถ้ามีข้อมูล historical ใช้ของเดิม ถ้าไม่มี = เดือนปัจจุบัน ดึง real-time
-  let income  = hist ? hist.income  : 0;
-  let expense = hist ? hist.expense : 0;
-  let dca     = hist ? hist.dca     : 0;
-  let cats    = hist ? hist.cats    : {};
-
   if (!hist) {
-    // real-time mode: รวม transactions จริงอย่างเดียว ไม่นับ recurring ซ้ำ
+    // ===== REAL-TIME MODE =====
+    let income = 0, varExpense = 0, dca = 0;
     const catMap = {};
+
     localThisMonth.forEach(tx => {
       if (tx.type === 'income') income += tx.amount;
       else if (tx.type === 'invest' && tx.catId === 'dca') dca += tx.amount;
       else if (tx.type === 'expense') {
-        expense += tx.amount;
+        varExpense += tx.amount;
         catMap[tx.catName] = (catMap[tx.catName] || 0) + tx.amount;
       }
     });
 
-    // รวม recurring ที่ยังไม่ถึงกำหนด (upcoming committed) แยกแสดง
-    const today = now.getDate();
-    let upcomingTotal = 0;
+    // รวม recurring ทั้งหมดของเดือนนี้ (fixed cost)
+    let fixedExpense = 0;
     recurring.forEach(r => {
       const freq = r.freq || 1;
       if (freq > 1 && now.getMonth() % freq !== 0) return;
-      if (r.day > today) {
-        upcomingTotal += r.amount;
-      }
+      fixedExpense += r.amount;
     });
 
-    cats = catMap;
+    const totalExpense = varExpense + fixedExpense;
+    const saving = income - totalExpense;
+    const remain = saving - dca;
 
-    // อัปเดต upcoming label
-    const upcomingEl = document.getElementById('d-upcoming');
-    if (upcomingEl) upcomingEl.textContent = '฿' + fmt(upcomingTotal);
+    // อัปเดต UI
+    document.getElementById('d-income').textContent   = '฿' + fmt(income);
+    document.getElementById('d-income-rt') && (document.getElementById('d-income-rt').textContent = '฿' + fmt(income));
+    document.getElementById('d-var-expense').textContent  = '฿' + fmt(varExpense);
+    document.getElementById('d-fixed-expense').textContent = '฿' + fmt(fixedExpense);
+    document.getElementById('d-expense').textContent  = '฿' + fmt(totalExpense);
+    document.getElementById('d-saving').textContent   = '฿' + fmt(saving);
+    document.getElementById('d-dca').textContent      = '฿' + fmt(dca);
+    document.getElementById('d-remain').textContent   = '฿' + fmt(remain);
+
+    const remainEl = document.getElementById('d-remain');
+    remainEl.style.color = remain >= 0 ? '#1D9E75' : '#E24B4A';
+    const savingEl = document.getElementById('d-saving');
+    savingEl.style.color = saving >= 0 ? '#1D9E75' : '#E24B4A';
+
+    // ซ่อน/แสดง breakdown cards
+    const rtEl = document.getElementById('d-rt-breakdown');
+    if (rtEl) rtEl.style.display = 'grid';
+    const histEl = document.getElementById('d-hist-breakdown');
+    if (histEl) histEl.style.display = 'none';
+
+    renderDonut(catMap, varExpense);
+    renderBars(catMap);
 
   } else {
-    // historical mode: เพิ่ม local transaction ที่กรอกเพิ่มใหม่
+    // ===== HISTORICAL MODE =====
+    let income = hist.income, expense = hist.expense, dca = hist.dca || 0;
     localThisMonth.forEach(tx => {
       if (tx.type === 'income') income += tx.amount;
       else if (tx.type === 'expense') expense += tx.amount;
       else if (tx.type === 'invest' && tx.catId === 'dca') dca += tx.amount;
     });
+    const saving = income - expense;
+    const remain = saving - dca;
+
+    const setEl = (id, val) => { const e = document.getElementById(id); if(e) e.textContent = val; };
+    const setColor = (id, color) => { const e = document.getElementById(id); if(e) e.style.color = color; };
+    setEl('d-income', '฿' + fmt(income));
+    setEl('d-h-expense', '฿' + fmt(expense));
+    setEl('d-h-saving',  '฿' + fmt(saving));
+    setEl('d-h-dca',     '฿' + fmt(dca));
+    setEl('d-h-remain',  '฿' + fmt(remain));
+    setColor('d-h-remain', remain >= 0 ? '#1D9E75' : '#E24B4A');
+    setColor('d-h-saving', saving >= 0 ? '#1D9E75' : '#E24B4A');
+
+    const rtEl = document.getElementById('d-rt-breakdown');
+    if (rtEl) rtEl.style.display = 'none';
+    const histEl = document.getElementById('d-hist-breakdown');
+    if (histEl) histEl.style.display = 'grid';
+
+    renderDonut(hist.cats, expense);
+    renderBars(hist.cats);
   }
 
-  const saving = income - expense;
-  const remain = saving - dca;
-
-  document.getElementById('d-income').textContent  = '฿'+fmt(income);
-  document.getElementById('d-expense').textContent = '฿'+fmt(expense);
-  document.getElementById('d-saving').textContent  = '฿'+fmt(saving < 0 ? saving : saving);
-  document.getElementById('d-dca').textContent     = '฿'+fmt(dca);
-  document.getElementById('d-remain').textContent  = '฿'+fmt(remain);
-
-  // สีเงินคงเหลือ
-  const remainEl = document.getElementById('d-remain');
-  remainEl.style.color = remain >= 0 ? '#1D9E75' : '#E24B4A';
-
-  renderDonut(cats, expense);
-  renderBars(cats);
   renderRecentTx();
 }
 
