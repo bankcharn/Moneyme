@@ -486,6 +486,39 @@ input:checked+.slider:before{transform:translateX(18px)}
   </div>
 </div>
 
+
+<!-- MODAL: IMPORT FROM SHEET -->
+<div class="modal-overlay" id="modal-import" onclick="closeModalOutside(event,'modal-import')">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">📥 โหลดข้อมูลจาก Google Sheet</div>
+    <div style="font-size:13px;color:var(--text2);margin-bottom:14px;line-height:1.6">ดึงรายการที่บันทึกไว้ใน Google Sheet มาแสดงในแอป ข้อมูลที่มีอยู่แล้วจะไม่หาย</div>
+    <div class="field">
+      <label>เลือกเดือนที่ต้องการ</label>
+      <select id="import-month">
+        <option value="">ทุกเดือน (ทั้งหมด)</option>
+        <option value="Jan">ม.ค. (Jan)</option>
+        <option value="Feb">ก.พ. (Feb)</option>
+        <option value="Mar">มี.ค. (Mar)</option>
+        <option value="Apr">เม.ย. (Apr)</option>
+        <option value="May">พ.ค. (May)</option>
+        <option value="Jun">มิ.ย. (Jun)</option>
+        <option value="Jul" selected>ก.ค. (Jul)</option>
+        <option value="Aug">ส.ค. (Aug)</option>
+        <option value="Sep">ก.ย. (Sep)</option>
+        <option value="Oct">ต.ค. (Oct)</option>
+        <option value="Nov">พ.ย. (Nov)</option>
+        <option value="Dec">ธ.ค. (Dec)</option>
+      </select>
+    </div>
+    <div id="import-error" style="display:none;background:#FCEBEB;color:#A32D2D;border-radius:8px;padding:10px;font-size:13px;margin-bottom:10px"></div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal('modal-import')">ยกเลิก</button>
+      <button class="btn-confirm" id="import-btn" onclick="doImport()">📥 โหลดข้อมูล</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 <script src="app.js"></script>
 <script>
