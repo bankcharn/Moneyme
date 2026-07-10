@@ -331,7 +331,7 @@ function renderDashboard() {
   let cats    = hist ? hist.cats    : {};
 
   if (!hist) {
-    // real-time mode: รวม transactions จริง
+    // real-time mode: รวม transactions จริงอย่างเดียว ไม่นับ recurring ซ้ำ
     const catMap = {};
     localThisMonth.forEach(tx => {
       if (tx.type === 'income') income += tx.amount;
@@ -342,26 +342,23 @@ function renderDashboard() {
       }
     });
 
-    // รวม recurring ที่ยังไม่ได้ log ในเดือนนี้ (committed expense)
+    // รวม recurring ที่ยังไม่ถึงกำหนด (upcoming committed) แยกแสดง
     const today = now.getDate();
+    let upcomingTotal = 0;
     recurring.forEach(r => {
       const freq = r.freq || 1;
-      // เช็คว่าเดือนนี้ควรจ่ายไหม
       if (freq > 1 && now.getMonth() % freq !== 0) return;
-      // เช็คว่า log แล้วยัง
-      const alreadyLogged = localThisMonth.some(tx =>
-        tx.catName && tx.catName.includes(r.name) && tx.note === 'auto-recurring'
-      );
-      if (!alreadyLogged && r.day > today) {
-        // ยังไม่ถึงวัน — นับเป็น "committed" แสดงสีเหลือง
-        catMap['🔜 ' + r.name] = (catMap['🔜 ' + r.name] || 0) + r.amount;
-        expense += r.amount;
-      } else if (!alreadyLogged && r.day <= today) {
-        // ถึงวันแล้วแต่ไม่มีใน transaction — อาจ manual
-        catMap[r.name] = (catMap[r.name] || 0) + r.amount;
+      if (r.day > today) {
+        upcomingTotal += r.amount;
       }
     });
+
     cats = catMap;
+
+    // อัปเดต upcoming label
+    const upcomingEl = document.getElementById('d-upcoming');
+    if (upcomingEl) upcomingEl.textContent = '฿' + fmt(upcomingTotal);
+
   } else {
     // historical mode: เพิ่ม local transaction ที่กรอกเพิ่มใหม่
     localThisMonth.forEach(tx => {
@@ -849,13 +846,7 @@ function renderYearly() {
         else if (tx.type==='expense') rtExpense += tx.amount;
         else if (tx.type==='invest' && tx.catId==='dca') rtDca += tx.amount;
       });
-      // รวม recurring ทั้งหมดเดือนนี้
-      const recTotal = recurring.reduce((s,r) => {
-        const freq = r.freq || 1;
-        if (freq > 1 && now.getMonth() % freq !== 0) return s;
-        return s + r.amount;
-      }, 0);
-      rtExpense += recTotal;
+      // ไม่รวม recurring ซ้ำ เพราะ auto-log เป็น transaction จริงๆ แล้ว
       const rtRemain = rtIncome - rtExpense - rtDca;
       totalIncome  += rtIncome;
       totalExpense += rtExpense;
