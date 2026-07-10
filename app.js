@@ -861,13 +861,20 @@ function renderYearly() {
         const d = new Date(tx.date);
         return d.getMonth() === i && d.getFullYear() === now.getFullYear();
       });
-      let rtIncome = 0, rtExpense = 0, rtDca = 0;
+      let rtIncome = 0, rtVarExpense = 0, rtDca = 0;
       localTx.forEach(tx => {
         if (tx.type==='income') rtIncome += tx.amount;
-        else if (tx.type==='expense') rtExpense += tx.amount;
+        else if (tx.type==='expense') rtVarExpense += tx.amount;
         else if (tx.type==='invest' && tx.catId==='dca') rtDca += tx.amount;
       });
-      // ไม่รวม recurring ซ้ำ เพราะ auto-log เป็น transaction จริงๆ แล้ว
+      // รวม recurring ทั้งหมดของเดือนนี้ (เหมือนหน้ารายเดือน)
+      let rtFixed = 0;
+      recurring.forEach(r => {
+        const freq = r.freq || 1;
+        if (freq > 1 && now.getMonth() % freq !== 0) return;
+        rtFixed += r.amount;
+      });
+      const rtExpense = rtVarExpense + rtFixed;
       const rtRemain = rtIncome - rtExpense - rtDca;
       totalIncome  += rtIncome;
       totalExpense += rtExpense;
